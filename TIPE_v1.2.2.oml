@@ -1,0 +1,295 @@
+(*
+Auteur: Saïd Tellez
+Produit du: 08/09/2021
+Au: 25/10/2021
+À: Marseille
+Projet: TIPE
+Version: 1.2
+*)
+
+#load "graphics.cma";;
+open Graphics;;
+
+
+
+(* Fonctions de base *)
+
+let foi = float_of_int;;
+let iof = int_of_float;;
+let ( *** ) (x0, y0) (x1, y1) = foi (x0 * x1 + y0 * y1);; (* produit scalaire *)
+let norme u = sqrt (foi (fst u * fst u) +. foi (snd u * snd u));;
+let norme_float u = sqrt (fst u *. fst u +. snd u *. snd u);;
+
+let map_2 f1 l1 l2 = (* fonction map pour un couple de listes de même taille *)
+	let rec aux f r = function
+		|[],[] -> r
+		|[],_ |_,[] -> failwith "Listes de tailles différentes"
+		|h1::t1, h2::t2 -> aux f ((f h1 h2)::r) (t1,t2)
+	in aux f1 [] (l1,l2);;
+
+
+
+(* Fonctions de dessin de base *)
+
+let segment x0 y0 x1 y1 =
+	(* Segment entre les points (x0, y0) et (x1, y1) *)
+	moveto x0 y0;
+	lineto x1 y1;;
+
+
+let fleche x0 y0 x1 y1 =
+	(* Flèche entre les points (x0, y0) et (x1, y1) *)
+	let  alpha = 1.2 in (* angle *)
+	let k = 3. in (* facteur de taille *)
+	
+	let ux = x1 - x0 and uy = y1 - y0 in
+	let vx = (y0 - y1) / 10 and vy = (x1 - x0) / 10 in (* vecteur orthogonal à u *)
+	
+	let cos_alpha = cos alpha and sin_alpha = sin alpha in
+	
+	let x2 = iof ((foi x1) -. (cos_alpha) *. (foi ux) /. k +. (sin_alpha) *. (foi vx) /. k) 
+	and y2 = iof ((foi y1) -. (cos_alpha) *. (foi uy) /. k +. (sin_alpha) *. (foi vy) /. k) in
+	
+	let x3 = iof ((foi x1) -. (cos_alpha) *. (foi ux) /. k -. (sin_alpha) *. (foi vx) /. k) 
+	and y3 = iof ((foi y1) -. (cos_alpha) *. (foi uy) /. k -. (sin_alpha) *. (foi vy) /. k) in
+	
+	segment x0 y0 x1 y1;
+	segment x1 y1 x2 y2;
+	segment x1 y1 x3 y3;;
+
+
+let dessin_vect x0 y0 u =
+	fleche x0 y0 (x0 + fst u) (y0 + snd u);;
+
+
+let pointilles x0 y0 x1 y1 norme_p =
+	(* Segment pointillé entre les points (x0, y0) et (x1, y1) avec des pointillés de longueur norme_p *)
+	let rec aux (ux0, uy0) (ux1, uy1) (x, y) = function
+		|k when k <= 0. -> ()
+		|k ->
+			segment (iof ux0) (iof uy0) (iof (ux0 +. x)) (iof (uy0 +. y));
+			aux (ux0 +. 2. *. x, uy0 +. 2. *. y) (ux1, uy1) (x, y) ((iof (ux1 -. ux0), iof (uy1 -. uy0)) *** (iof x, iof y)) in
+			(* Tant que le produit scalaire du vecteur "segment pointillé encore à dessiner" et le vecteur
+			translation (colinéaire au vecteur "segment total original") est postiif... *)
+	
+	let ux = foi (x1 - x0) and uy = foi (y1 - y0) in
+	let norme_u = sqrt (ux *. ux +. uy *. uy) in
+	
+	let x = ux *. norme_p /. norme_u in
+	let y = uy *. norme_p /. norme_u in
+	(* Vecteur de translation:
+	Il est essentiel que ce vecteur soit du type float * float. S'il était du type int * int,
+	pour les petites valeurs de norme_p, les pointilles perderaient la bonne direction. *)
+	
+	aux (foi x0, foi y0) (foi x1, foi y1) (x, y) 1. (* N'importe quelle valeur positive fait l'affaire *)
+	;;
+
+
+
+(* Fonctions simulation *)
+
+let foyer x y alpha att n =
+	(* Foyer émettant dans la direction du vecteur
+	(x, y) avec un angle d'ouverture alpha et une atténuation angualaire att;
+	renvoie liste avec n vecteurs *)
+	(* Limites du programme: alpha < pi -> On ne peut pas simuler un corps noir *)
+	let beta = alpha /. foi (n-1) in
+	let u = (foi x, foi y) and v = (foi (-y), foi x) in (* Vecteurs orthogonaux *)
+	
+	let rec aux u1 v1 beta1 norme_u att1 r k = function
+		|0 -> r
+		|n1 ->
+			let beta_iter = beta1 *. foi k in (* beta correspondant à cette itération *)
+			let att_iter = norme_u *. att1 /. foi k in
+			let coeff = tan beta_iter in
+			let a1 = att1 *. fst u1 +. att1 *. coeff *. fst v1 in
+			let b1 = att1 *. snd u1 +. att1 *. coeff *. snd v1 in
+			
+			let a2 = att1 *. fst u1 -. att1 *. coeff *. fst v1 in
+			let b2 = att1 *. snd u1 -. att1 *. coeff *. snd v1 in
+			(* vect1 = att * u + att * tan beta * v *)
+			(* vect2 = att * u - att * tan beta * v *)
+			
+			(* Rendre les vecteurs unitaires et les multiplier par norme_u pour que tous soient de la même longueur*)
+			let norme_vect = norme_float (a1, b1) in (* norme des deux vecteurs créés à cette itération *)
+			
+			let vect1 = (iof (a1 /. norme_vect *. att_iter), iof (b1 /. norme_vect *. att_iter)) in
+			let vect2 = (iof (a2 /. norme_vect *. att_iter), iof (b2 /. norme_vect *. att_iter)) in
+			
+			aux u1 v1 beta1 norme_u (att1) (vect1::vect2::r) (k + 1) (n1 - 1)
+			
+	in aux u v beta (norme_float u) att [(x, y)] 1 (n/2);;
+
+
+let pts_reflexion f l u g =
+	(* Trouve les points d'intersection des vecteurs de la liste l (de foyer f) avec
+	la droite de vecteur directeur u et passant par le point g
+	Cela revient à résoudre le système:
+	{ax+by+s0=0
+	{cx+dy+s1=0
+	Où:
+		u = (-b,a)
+		chaque vecteur de l est (-d,c)
+		s0 = -ax0-by0 avec g = (x0,y0)
+		s1 = -cx1-dy1 avec f = (x1,y1)
+	*)
+	let rec aux f1 l1 u1 g1 r = match l1 with
+		|[] -> r
+		|h::t ->
+			let (b,a) = -fst u1, snd u1 in
+			let (d,c) = -fst h, snd h in
+			let det = a * d - b * c in
+			if det = 0 then
+				aux f1 t u1 g1 r
+			else begin
+				let (x0,y0) = g1 in
+				let (x1,y1) = f1 in
+				
+				let s0 = -a * x0 - b * y0 in
+				let s1 = -c * x1 - d * y1 in
+				
+				let x = (-d * s0 + b * s1)/det in
+				let y = (c * s0 - a * s1)/det in
+				aux f1 t u1 g1 ((x,y)::r)
+			end
+	in aux f l u g [];;
+
+
+let reflexion u v = 
+	let (vx, vy) = foi (fst v), foi (snd v) in
+	let w = snd v, -fst v in
+	let a = u *** v in
+	let b = u *** w in
+	let (x,y) = (a *. vx -. b *. vy, a *. vy +. b *. vx) in (* r = a.v-b.w *)
+	let n1 = norme_float (x,y) in
+	let n2 = norme u in
+	iof (x /. n1 *. n2), iof (y /. n1 *. n2)
+	;;
+
+
+let vects_reflechis l1 u1 =
+	(* Renvoie la liste des vecteurs de l réfléchis sur une droite de vecteur directeur u *)
+	let rec aux u r = function
+		|[] -> r
+		|h::t -> aux u ((reflexion h u)::r) t
+	in aux u1 [] l1
+;;
+
+
+let foyers_reflechis l v alpha att n =
+	let f (x,y) = foyer x y alpha att n in
+	List.map f (vects_reflechis l v);;
+	
+
+
+
+(* Dessin simulation *)
+
+let dessin_simul_rs source obstacle =
+	(* Fait le dessin de la simulation avec une réflexion simple *)
+	let ((sx,sy),(x,y),alpha,att,n) = source in
+	let ((ox,oy),(ux,uy)) = obstacle in
+	
+	let l = foyer x y alpha att n in
+	let pts = pts_reflexion (sx,sy) l (ux,uy) (ox,oy) in
+	let vects = vects_reflechis l (ux,uy) in
+	(* NB: Les vecteurs de la liste vects sont dans le même ordre que ceux de pts *)
+	let (px0, py0), (px1, py1) = (ox + ux, oy + uy), (ox - ux, oy - uy) in
+	
+	(* dessin foyer *)
+	set_color (rgb 0 0 0);
+	List.map (dessin_vect sx sy) l;
+	
+	(* dessin chemin *)
+	let g1 (a,b) = pointilles sx sy a b 5. in
+	List.map g1 pts;
+	
+	(* dessin obstacle *)
+	set_color (rgb 255 0 0);
+	pointilles px0 py0 px1 py1 10.;
+	
+	(* dessin rayons réfléchis *)
+	set_color (rgb 0 0 255);
+	let g2 (a,b) (c,d) = dessin_vect a b (c,d) in
+	map_2 g2 pts vects
+;;
+
+
+let dessin_simul_rf source obstacle refl =
+	(* Fait le dessin de la simulation avec une réflexion qui crée des nouveaux foyers
+	Non présent dans la version 1.2.1 *)
+	let ((sx,sy),(x,y),alpha,att,n) = source in
+	let ((ox,oy),(ux,uy)) = obstacle in
+	let (alpha_r, att_r, n_r) = refl in
+	
+	let l = foyer x y alpha att n in
+	let (px0, py0), (px1, py1) = (ox + ux, oy + uy), (ox - ux, oy - uy) in
+	let pts = pts_reflexion (sx,sy) l (ux,uy) (ox,oy) in
+	let r = foyers_reflechis l (ux,uy) alpha_r att_r n_r  in
+	(* NB: Les vecteurs de la liste vects sont dans le même ordre que ceux de pts *)
+	
+	(* dessin foyer *)
+	set_color (rgb 0 0 0);
+	List.map (dessin_vect sx sy) l;
+	
+	(* dessin chemin *)
+	let g1 (a,b) = pointilles sx sy a b 5. in
+	List.map g1 pts;
+	
+	(* dessin obstacle *)
+	set_color (rgb 255 0 0);
+	pointilles px0 py0 px1 py1 10.;
+	
+	(* dessin rayons réfléchis *)
+	set_color (rgb 0 0 255);
+	let g2 (a,b) = List.map (dessin_vect a b) in
+	map_2 g2 pts r
+;;
+
+
+
+(* Tests *)
+
+(* Test 1 *)
+open_graph "700x700";
+
+clear_graph();
+let source = (100, 250), (200, 100), (3.1416 /. 4.), 0.9, 10 in
+let obstacle = (500, 100), (0, 1000) in
+dessin_simul_rs source obstacle;
+
+;;
+
+(* Test 2 *)
+let rec delay = function
+	|0 -> ()
+	|n -> delay (n-1) in
+
+open_graph "700x700";
+let obstacle = (500, 100), (0, 1000) in
+for i = -200 to 200 do
+	clear_graph();
+	let source = (100, 250), (200, i), (3.1416 /. 4.), 0.9, 10 in
+	dessin_simul_rs source obstacle;
+	delay 5000000;
+done;;
+
+(* Test 3 *)
+let rec delay = function
+	|0 -> ()
+	|n -> delay (n-1) in
+
+open_graph "1200x700";
+let obstacle = (500, 250), (1000, 0) in
+let refl = (3.1416 /. 3.), 0.4, 10 in
+for i = 0 to 100000 do
+	clear_graph();
+	let source = (500, 600), (5 * (i mod 100) - 160, -200), (3.1416 /. 6.), 0.9, 10 in
+	dessin_simul_rf source obstacle refl;
+	delay 10000000;
+done;;
+
+
+
+
+

@@ -1,0 +1,122 @@
+(*
+Auteur: Saïd Tellez
+Produit du: 04/12/2021
+Au: ?
+À: Marseille
+Projet: TIPE
+Version: SP 1.0
+*)
+
+(*
+Remarques:
+SP = Simulation pure (sans affichage)
+Seule différence avec les autres fonctions: On n'utilise que le type float pour les vecteurs
+*)
+
+(* Fonctions de base *)
+
+let foi = float_of_int;;
+let iof = int_of_float;;
+let ( *** ) (x0, y0) (x1, y1) = x0 *. x1 +. y0 *. y1;; (* produit scalaire *)
+let norme u = sqrt (fst u *. fst u +. snd u *. snd u);;
+
+let map_2 f1 l1 l2 = (* fonction map pour un couple de listes de même taille *)
+	let rec aux f r = function
+		|[],[] -> r
+		|[],_ |_,[] -> failwith "Listes de tailles différentes"
+		|h1::t1, h2::t2 -> aux f ((f h1 h2)::r) (t1,t2)
+	in aux f1 [] (l1,l2);;
+	
+(* Fonctions simulation *)
+
+let foyer x y alpha att n =
+	(* Foyer émettant dans la direction du vecteur
+	(x, y) avec un angle d'ouverture alpha et une atténuation angualaire att;
+	renvoie liste avec n vecteurs *)
+	(* Limites du programme: alpha < pi -> On ne peut pas simuler un corps noir *)
+	let beta = alpha /. foi (n-1) in
+	let u = (x, y) and v = (-.y, x) in (* Vecteurs orthogonaux *)
+	
+	let rec aux u1 v1 beta1 norme_u att1 r k = function
+		|0 -> r
+		|n1 ->
+			let beta_iter = beta1 *. foi k in (* beta correspondant à cette itération *)
+			let att_iter = norme_u *. att1 beta_iter in
+			let coeff = tan beta_iter in
+			let a1 = fst u1 +. coeff *. fst v1 in
+			let b1 = snd u1 +. coeff *. snd v1 in
+			
+			let a2 = fst u1 -. coeff *. fst v1 in
+			let b2 = snd u1 -. coeff *. snd v1 in
+			(* vect1 = att * u + att * tan beta * v *)
+			(* vect2 = att * u - att * tan beta * v *)
+			
+			(* Rendre les vecteurs unitaires et les multiplier par norme_u pour que tous soient de la même longueur*)
+			let norme_vect = norme (a1, b1) in (* norme des deux vecteurs créés à cette itération *)
+			
+			let vect1 = (a1 /. norme_vect *. att_iter, b1 /. norme_vect *. att_iter) in
+			let vect2 = (a2 /. norme_vect *. att_iter, b2 /. norme_vect *. att_iter) in
+			
+			aux u1 v1 beta1 norme_u (att1) (vect1::vect2::r) (k + 1) (n1 - 1)
+			
+	in aux u v beta (norme u) att [(x, y)] 1 (n/2);;
+
+let pts_reflexion f l u g =
+	(* Trouve les points d'intersection des vecteurs de la liste l (de foyer f) avec
+	la droite de vecteur directeur u et passant par le point g
+	Cela revient à résoudre le système:
+	{ax+by+s0=0
+	{cx+dy+s1=0
+	Où:
+		u = (-b,a)
+		chaque vecteur de l est (-d,c)
+		s0 = -ax0-by0 avec g = (x0,y0)
+		s1 = -cx1-dy1 avec f = (x1,y1)
+	*)
+	let rec aux f1 l1 u1 g1 r = match l1 with
+		|[] -> r
+		|h::t ->
+			let (b,a) = -.fst u1, snd u1 in
+			let (d,c) = -.fst h, snd h in
+			let det = a *. d -. b *. c in
+			if abs_float(det) < 1e-12 then (* det = 0 ? *)
+				aux f1 t u1 g1 r
+			else begin
+				let (x0,y0) = g1 in
+				let (x1,y1) = f1 in
+				
+				let s0 = -.a *. x0 -. b *. y0 in
+				let s1 = -.c *. x1 -. d *. y1 in
+				
+				let x = (-.d *. s0 +. b *. s1)/.det in
+				let y = (c *. s0 -. a *. s1)/.det in
+				aux f1 t u1 g1 ((x,y)::r)
+			end
+	in aux f l u g [];;	
+
+let reflexion u v = 
+	let (vx, vy) = (fst v, snd v) in
+	let w = snd v, -.fst v in
+	let a = u *** v in
+	let b = u *** w in
+	let (x,y) = (a *. vx -. b *. vy, a *. vy +. b *. vx) in (* r = a.v-b.w *)
+	let n1 = norme (x,y) in
+	let n2 = norme u in
+	x /. n1 *. n2, y /. n1 *. n2
+	;;
+
+let vects_reflechis l1 u1 =
+	(* Renvoie la liste des vecteurs de l réfléchis sur une droite de vecteur directeur u *)
+	let rec aux u r = function
+		|[] -> r
+		|h::t -> aux u ((reflexion h u)::r) t
+	in aux u1 [] l1
+;;
+
+let foyers_reflechis l v alpha att n =
+	let f (x,y) = foyer x y alpha att n in
+	List.map f (vects_reflechis l v);;
+
+
+
+

@@ -1,0 +1,30 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2578
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 R\'e9dig\'e9: 25/10/2021\
+Auteur: Sa\'efd Tellez\
+\
+v1.1:\
+La version 1.1 ne contient que certains \'e9l\'e9ments permettant une simulation partielle.\
+Attention: La fonction pointill\'e9s ne fonctionne que pour des longueurs des pointilles assez grands: une erreur d\'92arrondie dans le vecteur de translation g\'e9n\'e8re une divergence de la direction souhait\'e9e.\
+\
+v1.2:\
+La version 1.2 est compl\'e8te et permet une simulation sous certaines hypoth\'e8ses:\
+- La r\'e9flexion respecte la loi de Descartes (v1.2.1) en consid\'e9rant le vecteur r\'e9fl\'e9chi comme une nouvelle source (v.1.2.2)\
+- Pas de pertes: les normes d\'92un vecteur et de son r\'e9fl\'e9chi sont \'e9gales\
+- Pas d\'92effet d\'92att\'e9nuation (pas de loi en carr\'e9 inverse)\
+- Pas d\'92interf\'e9rences\
+- Tous les obstacles sont des droites\
+\
+v1.2.3: 04/12/2021\
+Correction de certains aspects:\
+- Dans la fonction foyer de la version v1.2.2 on multipliait un vecteur par un scalaire pour apr\'e8s le renormaliser. Ceci a \'e9t\'e9 corrig\'e9.\
+- On a remplac\'e9 List.map par List.iter dans les fonctions de dessin pour \'e9liminer le warning nous indiquant que List.map ne devait pas renvoyer unit.\
+- Le param\'e8tre d\'92att\'e9nuation \'93att\'94 n\'92est plus une valeur, mais une fonction: en interpolant dans le diagramme de rayonnement on obtient une fonction que l\'92on peut passer comme param\'e8tre.\
+\
+v1.2.4: ?12/2021\
+Impl\'e9mentation de la loi en carr\'e9 inverse.}

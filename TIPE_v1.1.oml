@@ -1,0 +1,118 @@
+(*
+Auteur: Saïd Tellez
+Produit du: 03/09/2021
+Au: 08/09/2021
+À: Marseille
+Projet: TIPE
+Version: 1.1
+*)
+
+#load "graphics.cma";;
+open Graphics;;
+open_graph "500x500";;
+
+let foi = float_of_int;;
+let iof = int_of_float;;
+let ( *** ) (x0, y0) (x1, y1) = foi (x0 * x1 + y0 * y1);; (* produit scalaire *)
+let norme u = sqrt (foi (fst u * fst u) +. foi (snd u * snd u));;
+let norme_float u = sqrt (fst u *. fst u +. snd u *. snd u);;
+
+(* Fonctions de dessin de base *)
+
+let segment x0 y0 x1 y1 =
+	(* Segment entre les points (x0, y0) et (x1, y1) *)
+	moveto x0 y0;
+	lineto x1 y1;;
+
+
+let fleche x0 y0 x1 y1 =
+	(* Flèche entre les points (x0, y0) et (x1, y1) *)
+	let  alpha = 1.2 in (* angle *)
+	let k = 3. in (* facteur de taille *)
+	
+	let ux = x1 - x0 and uy = y1 - y0 in
+	let vx = (y0 - y1) / 10 and vy = (x1 - x0) / 10 in (* vecteur orthogonal à u *)
+	
+	let cos_alpha = cos alpha and sin_alpha = sin alpha in
+	
+	let x2 = iof ((foi x1) -. (cos_alpha) *. (foi ux) /. k +. (sin_alpha) *. (foi vx) /. k) 
+	and y2 = iof ((foi y1) -. (cos_alpha) *. (foi uy) /. k +. (sin_alpha) *. (foi vy) /. k) in
+	
+	let x3 = iof ((foi x1) -. (cos_alpha) *. (foi ux) /. k -. (sin_alpha) *. (foi vx) /. k) 
+	and y3 = iof ((foi y1) -. (cos_alpha) *. (foi uy) /. k -. (sin_alpha) *. (foi vy) /. k) in
+	
+	segment x0 y0 x1 y1;
+	segment x1 y1 x2 y2;
+	segment x1 y1 x3 y3;;
+
+let dessin_vect x0 y0 u =
+	fleche x0 y0 (x0 + fst u) (y0 + snd u);;
+
+let pointilles x0 y0 x1 y1 norme_p =
+	(* Segment pointillé entre les points (x0, y0) et (x1, y1) avec des pointillés de longueur norme_p *)
+	let rec aux (ux0, uy0) (ux1, uy1) (x, y) = function
+		|k when k <= 0. -> ()
+		|k ->
+			segment ux0 uy0 (ux0 + x) (uy0 + y);
+			aux (ux0 + 2 * x, uy0 + 2 * y) (ux1, uy1) (x, y) ((ux1 - ux0, uy1 - uy0) *** (x, y)) in
+			(* Tant que le produit scalaire du vecteur "segment encore pointillé à dessiner" et le vecteur
+			translation (colinéaire au vecteur "segment total original") est postiif... *)
+	
+	let ux = foi (x1 - x0) and uy = foi (y1 - y0) in
+	let norme_u = sqrt (ux *. ux +. uy *. uy) in
+	
+	let x = iof (ux *. norme_p /. norme_u) in
+	let y = iof (uy *. norme_p /. norme_u) in (* Vecteur de translation *)
+	
+	aux (x0, y0) (x1, y1) (x, y) 1. (* n'importe quelle valeur positive fait l'affaire *)
+	;;
+
+
+(* Fonctions simulation *)
+
+let foyer x y alpha att n =
+	(* Foyer émettant dans la direction du vecteur
+	(x, y) avec un angle d'ouverture alpha et une atténuation angualaire att;
+	renvoie liste avec n vecteurs *)
+	(* Limites du programme: alpha < pi -> On ne peut pas simuler un corps noir *)
+	let beta = alpha /. foi (n-1) in
+	let u = (foi x, foi y) and v = (foi (-y), foi x) in (* Vecteurs orthogonaux *)
+	
+	let rec aux u1 v1 beta1 norme_u att1 r k = function
+		|0 -> r
+		|n1 ->
+			let beta_iter = beta1 *. foi k in (* beta correspondant à cette itération *)
+			let att_iter = norme_u *. att1 /. foi k in
+			let coeff = tan beta_iter in
+			let a1 = att1 *. fst u1 +. att1 *. coeff *. fst v1 in
+			let b1 = att1 *. snd u1 +. att1 *. coeff *. snd v1 in
+			
+			let a2 = att1 *. fst u1 -. att1 *. coeff *. fst v1 in
+			let b2 = att1 *. snd u1 -. att1 *. coeff *. snd v1 in
+			(* vect1 = att * u + att * tan beta * v *)
+			(* vect2 = att * u - att * tan beta * v *)
+			
+			(* Rendre les vecteurs unitaires et les multiplier par norme_u pour que tous soient de la même longueur*)
+			let norme_vect = norme_float (a1, b1) in (* norme des deux vecteurs créés à cette itération *)
+			
+			let vect1 = (iof (a1 /. norme_vect *. att_iter), iof (b1 /. norme_vect *. att_iter)) in
+			let vect2 = (iof (a2 /. norme_vect *. att_iter), iof (b2 /. norme_vect *. att_iter)) in
+			
+			aux u1 v1 beta1 norme_u (att1) (vect1::vect2::r) (k + 1) (n1 - 1)
+			
+	in aux u v beta (norme_float u) att [(x, y)] 1 (n/2);;
+
+open_graph "700x700";
+
+clear_graph();
+
+let l = foyer (400) (-100) (3.1416 /. 2.) 0.8 10 in 
+
+List.map (dessin_vect 250 250) l;;
+
+
+
+
+
+
+
